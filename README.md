@@ -1,4 +1,4 @@
-# Code for estimating causal effects of C-reactive protein (CRP)
+# Code for estimating causal effects of C-reactive protein on health outcomes
 
 This repository contains code for our study investigating the causal effects of C-reactive protein (CRP) on multiple disease and health-related outcomes using multivariable Mendelian randomization (MVMR) with adjusting for heritable confounding.
 
