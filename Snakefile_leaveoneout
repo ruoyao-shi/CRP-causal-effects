@@ -1,0 +1,180 @@
+# Snakemake pipeline for running leave-one-out sensitivity analysis
+
+
+import pandas as pd
+import random
+import string
+import os.path
+from snakemake.utils import validate
+
+###### Load configuration file
+configfile: "config.yaml"
+
+
+# output options
+data_dir = config["out"]["data_dir"] #where the data is
+out_dir = "results_stepwise/" #where results will go
+original_gwas_dir = config["out"]["gwas_dir"] # where originally download gwas data lives
+
+prefix = config["input"]["label"] + "_"
+exposure_prefix = config["input"]["exposure_label"] + "_"
+id_exposure = config["input"]["id_exposure"]
+id_outcome = config["input"]["id_outcome"]
+type_outcome = config["input"]["type_outcome"]
+prevalence_outcome = config["input"]["prevalence_outcome"]
+l2_dir = config["analysis"]["estimate_R"]["l2_dir"] # where LD score reference data lives
+
+df_info_exposure_outcome = config["input"]["info_exposure_outcome"]
+if df_info_exposure_outcome == "NA":
+    df_info_exposure_outcome = "results/df_info_exposure_outcome.csv"
+
+MVMR_list = ["finalselect"]
+MVMR_strength_list = MVMR_list
+
+R_type = []
+if "pval" in config["analysis"]["estimate_R"]["type"]:
+    R_type.append("pval")
+if "ldsc" in config["analysis"]["estimate_R"]["type"]:
+    R_type.append("ldsc")
+    
+
+MVMR_method = []
+if "IVW" in config["analysis"]["MVMR_analysis"]["method"]:
+    IVW_string = expand("IVW_{IVW_pt}",IVW_pt = config["analysis"]["MVMR_analysis"]["p_thresh_IVW"])
+    MVMR_method.extend(IVW_string)
+if "GRAPPLE" in config["analysis"]["MVMR_analysis"]["method"]:
+    GRAPPLE_string = expand("GRAPPLE_{GRAPPLE_pt}",GRAPPLE_pt = config["analysis"]["MVMR_analysis"]["p_thresh_GRAPPLE"])
+    MVMR_method.extend(GRAPPLE_string)
+if "MRBEE" in config["analysis"]["MVMR_analysis"]["method"]:
+    MRBEE_string = expand("MRBEE_{MRBEE_pt}_pleio_{pleio_pt}",MRBEE_pt = config["analysis"]["MVMR_analysis"]["p_thresh_MRBEE"],
+                           pleio_pt = config["analysis"]["MVMR_analysis"]["pleio_p_thresh"])
+    MVMR_method.extend(MRBEE_string)
+
+MVMR_R_type = config["analysis"]["MVMR_analysis"]["R_type"]
+downstream_filter_method = expand("{downstream_method}_FDR_p_{downstream_p}", 
+                                  downstream_method = config["analysis"]["downstream_filter"]["method"],
+                                  downstream_p = config["analysis"]["downstream_filter"]["p"])
+# you need to change to your location for finally selected trait list
+ids = pd.read_csv("results/SCZ_finalselect_MVMR_GRAPPLE_FDR_p_0.05_id_list.csv")["id"].astype(str).tolist()
+leaveout_ids = ids[1:]
+
+rule all:
+    input:
+        expand(out_dir + prefix + "{downstream_method}_FDR_p_0.05_leaveout_summary.csv",
+               downstream_method=config["analysis"]["downstream_filter"]["method"])
+rule generate_leave_one_out:
+    input:
+        # you need to change to your location for finally selected trait list
+        id_list="results/SCZ_finalselect_MVMR_GRAPPLE_FDR_p_0.05_id_list.csv"
+    output:
+        out = out_dir + prefix + "finalselect_MVMR_GRAPPLE_FDR_p_0.05_id_list_leaveout_{leaveout_id}.csv"
+    params:
+        leaveout_id="{leaveout_id}"
+    script:
+        "R/generate_leave_one_out.R"
+
+    
+def input_MVMR_combine_gwas(wildcards):
+    downstream_method = wildcards.downstream_method
+    inputs = []
+    id_list_file = out_dir + prefix + f"{wildcards.MVMR_id}_{downstream_method}_FDR_p_0.05_id_list_leaveout_{wildcards.leaveout_id}.csv"
+    trait_info_file = "results/" + prefix + f"{wildcards.MVMR_id}_{downstream_method}_FDR_p_0.05_trait_info.csv"
+    inputs.extend([id_list_file, trait_info_file])
+    return inputs
+    
+rule MVMR_combine_gwas:
+    input: file = input_MVMR_combine_gwas,
+           file_info_exposure_outcome = df_info_exposure_outcome,
+           download = data_dir + prefix + "download_{downstream_method}_FDR_p_0.05.sh"
+    params: path = original_gwas_dir,
+            id_exposure = id_exposure,
+            id_outcome = id_outcome
+    output: out = temp(data_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_beta.{chrom}.RDS")
+    wildcard_constraints: chrom = "\d+",
+                          MVMR_id = "(?!.*all).*",
+                          downstream_method = "(MR_.*|MVMR_.*)",
+                          downstream_p = "[\d.]+"
+    script: "R/8_MVMR_combine_gwas.R"
+
+rule MVMR_LD_clumping:
+    input: beta = data_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_beta.{chrom}.RDS"
+    params: r2_thresh = config["analysis"]["ldprune"]["r2_thresh"],
+            clump_kb = config["analysis"]["ldprune"]["clump_kb"],
+            ref_path = config["analysis"]["ldprune"]["ref_path"],
+            ld_prioritization = config["analysis"]["ldprune"]["ld_prioritization"],
+            pthresh = config["analysis"]["ldprune"]["pthresh"]
+    output: out = data_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_beta_ldpruned.{chrom}.RDS"
+    wildcard_constraints: chrom = "\d+",
+                          downstream_method = "(MR_.*|MVMR_.*)",
+                          downstream_p = "[\d.]+"
+    script: "R/8_ld_prune_plink.R"
+
+rule MVMR_R_ldsc:
+    input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_0.05_leaveout_{{leaveout_id}}_beta.{chrom}.RDS", chrom = range(1, 23)),
+           m = expand(l2_dir + "{chrom}.l2.M_5_50", chrom = range(1, 23)),
+           l2 = expand(l2_dir + "{chrom}.l2.ldscore.gz", chrom = range(1, 23))
+    output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_R_ldsc.RDS"
+    wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)"
+    script: "R/5_ldsc_full.R"
+
+rule MVMR_IVW:
+    input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_0.05_leaveout_{{leaveout_id}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23))
+    params: pval_threshold = lambda wc: wc.get("IVW_pt"),
+            effect_size_cutoff = config["analysis"]["MVMR_analysis"]["effect_size_cutoff"],
+            type_outcome = type_outcome,
+            prevalence_outcome = prevalence_outcome
+    output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_MVMR_IVW_{IVW_pt}.RDS"
+    wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
+                          downstream_p = "[\d.]+"
+    script: "R/9_MVMR_IVW.R"
+
+rule MVMR_GRAPPLE:
+    input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_0.05_leaveout_{{leaveout_id}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
+           R = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_R_" + MVMR_R_type + ".RDS"
+    params: pval_threshold = lambda wc: wc.get("GRAPPLE_pt"),
+            R_type = MVMR_R_type,
+            effect_size_cutoff = config["analysis"]["MVMR_analysis"]["effect_size_cutoff"],
+            type_outcome = type_outcome,
+            prevalence_outcome = prevalence_outcome
+    output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_MVMR_GRAPPLE_{GRAPPLE_pt}.RDS"
+    wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
+                          downstream_p = "[\d.]+"
+    script: "R/9_MVMR_GRAPPLE.R"
+
+rule MVMR_MRBEE:
+    input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_0.05_leaveout_{{leaveout_id}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
+           R = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_R_" + MVMR_R_type + ".RDS"
+    params: pval_threshold = lambda wc: wc.get("MRBEE_pt"),
+            pleio_p_thresh = lambda wc: wc.get("pleio_pt"),
+            R_type = MVMR_R_type,
+            effect_size_cutoff = config["analysis"]["MVMR_analysis"]["effect_size_cutoff"],
+            type_outcome = type_outcome,
+            prevalence_outcome = prevalence_outcome
+    output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_MVMR_MRBEE_{MRBEE_pt}_pleio_{pleio_pt}.RDS"
+    wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
+                          downstream_p = "[\d.]+"
+    script: "R/9_MVMR_MRBEE.R"
+
+rule MVMR_strength:
+    input: beta = expand(data_dir + prefix + "{{MVMR_strength_id}}_{{downstream_method}}_FDR_p_0.05_leaveout_{{leaveout_id}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
+           R = out_dir + prefix + "{MVMR_strength_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_R_" + MVMR_R_type + ".RDS",
+           trait_info = "results/" + prefix + "unique_traits_{downstream_method}_FDR_p_0.05_trait_info.csv"
+    params: pval_threshold = config["analysis"]["MVMR_analysis"]["p_thresh_strength"],
+            R_type = MVMR_R_type,
+            effect_size_cutoff = config["analysis"]["MVMR_analysis"]["effect_size_cutoff"],
+            type_outcome = type_outcome,
+            prevalence_outcome = prevalence_outcome
+    output: out = out_dir + prefix + "{MVMR_strength_id}_{downstream_method}_FDR_p_0.05_leaveout_{leaveout_id}_MVMR_strength.csv"
+    wildcard_constraints: MVMR_id = "(?!.*all).*",
+                          downstream_method = "(MR_.*|MVMR_.*)",
+                          downstream_p = "[\d.]+"
+    script: "R/9_MVMR_strength.R"
+    
+rule summary_result:
+    input: mvmr_file = expand(out_dir + prefix + "{MVMR_id}_{{downstream_method}}_FDR_p_0.05_leaveout_{leaveout_id}_MVMR_{type}.RDS",MVMR_id = MVMR_list, type=MVMR_method,leaveout_id=leaveout_ids)
+    params: prefix = prefix,
+            method = config["analysis"]["downstream_filter"]["method"],
+            id_exposure = id_exposure,
+            id_outcome = id_outcome
+    output: out = out_dir + prefix + "{downstream_method}_FDR_p_0.05_leaveout_summary.csv"
+    script: "R/summary_result_leaveout.R"

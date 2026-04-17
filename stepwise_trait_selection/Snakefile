@@ -23,7 +23,7 @@ l2_dir = config["analysis"]["estimate_R"]["l2_dir"] # where LD score reference d
 
 rule all:
     input:
-        expand(out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_{file_type}.csv", 
+        expand(out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_{file_type}.csv", 
                downstream_method = config["analysis"]["downstream_filter"]["method"],
                downstream_p = config["analysis"]["downstream_filter"]["p"],
                file_type = ["id_list","trait_info"])
@@ -40,7 +40,7 @@ rule combine_gwas:
     wildcard_constraints: chrom = "\d+",
                           downstream_method = ".*(MR|MVMR).*",
                           downstream_p = "[\d.]+"
-    script: "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/trait_selection/R/combine_gwas.R"
+    script: "stepwise_trait_selection/R/combine_gwas.R"
 
 rule calculate_cor:
     input: beta = expand(previous_data_dir + prefix + "unique_traits_{{downstream_method}}_FDR_p_{{downstream_p}}_beta.{chrom}.RDS", chrom = range(1, 23)),
@@ -49,7 +49,7 @@ rule calculate_cor:
     output: out = out_dir + prefix + "unique_traits_{downstream_method}_FDR_p_{downstream_p}_R_ldsc.RDS"
     wildcard_constraints: downstream_method = ".*(MR|MVMR).*",
                           downstream_p = "[\d.]+"
-    script: "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/trait_selection/R/ldsc_full.R"
+    script: "stepwise_trait_selection/R/ldsc_full.R"
 
 def get_filter_data_input(wildcards):
     downstream_method = wildcards.downstream_method
@@ -66,7 +66,7 @@ rule filter_data:
     output:
         out = data_dir + prefix + "beta_filtered.{chrom}_{downstream_method}_FDR_p_{downstream_p}_n{n}.RDS"
     script:
-        "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/trait_selection/R/filter_data.R"
+        "stepwise_trait_selection/R/filter_data.R"
 
 def get_ld_clumping_input(wildcards):
     n = int(wildcards.n)
@@ -89,7 +89,7 @@ checkpoint LD_clumping:
     wildcard_constraints: chrom = "\d+",
                           downstream_method = ".*(MR|MVMR).*",
                           downstream_p = "[\d.]+"
-    script: "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/trait_selection/R/ld_prune_plink.R"
+    script: "stepwise_trait_selection/R/ld_prune_plink.R"
     
 def get_strength_filter_input(wildcards):
    n = int(wildcards.n)
@@ -112,7 +112,7 @@ checkpoint strength_filter:
             out_flag = result_dir + prefix + "{downstream_method}_FDR_p_{downstream_p}_status_n{n}.flag"
     wildcard_constraints: downstream_method = ".*(MR|MVMR).*",
                           downstream_p = "[\d.]+"
-    script: "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/trait_selection/R/strength_filter.R"
+    script: "stepwise_trait_selection/R/strength_filter.R"
 
 def next_input(wcs):
     flag_files = sorted(glob.glob(f'{result_dir}{prefix}{wcs.downstream_method}_FDR_p_{wcs.downstream_p}_status_n*.flag'))
@@ -132,8 +132,8 @@ rule finalize:
     input:
         flag_and_id_list = next_input
     output:
-        final_list1 = result_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
-        final_list2 = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_id_list.csv"
+        final_list1 = result_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
+        final_list2 = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_id_list.csv"
     run:
         flag_file, id_list_file = input.flag_and_id_list
         flag_status = open(flag_file).read().strip()
@@ -142,8 +142,8 @@ rule finalize:
             shell(f"cp {id_list_file} {output.final_list2}")
     
 rule info_file:
-    input: id_list = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
+    input: id_list = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
            trait_info = out_dir + prefix + "unique_traits_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
-    output: out = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
-    script: "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/trait_selection/R/generate_info_file.R"
+    output: out = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
+    script: "stepwise_trait_selection/R/generate_info_file.R"
 

@@ -2,24 +2,24 @@
 library(openxlsx)
 library(dplyr)
 library(ieugwasr)
-
+Sys.setenv(OPENGWAS_JWT = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImFwaS1qd3QiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJhcGkub3Blbmd3YXMuaW8iLCJhdWQiOiJhcGkub3Blbmd3YXMuaW8iLCJzdWIiOiJ5dXhpYW93QHVtaWNoLmVkdSIsImlhdCI6MTc3NTM2MjA4NSwiZXhwIjoxNzc2NTcxNjg1fQ.mnguxAk3eYNfKJRI_0sdpzkctc23gb2lDpWiwwj2bX9J6lknOJBwkpMwC7i_Ix8cOJHWzjmh_BdlkpCIUPfhBRIsycs9kC9b3kV_FnX-kBMbh-Xyy5IffZMgdFJ_uDtzbCS0fB4m_sTM_iw4_ltIpt2IrvE6b5lXVP4uU_vOHg1ByqqZ6cBbcb7JJsoY46k6XROgy9Kdf1cYZDYfcbo2gLul1z9XJqp6sAd6gNB83N4ruq_m5jyd61U8rsyzo9eejtXv3n4Iy9K31YXeReciw5L84NBNKbvqBPu8NP1nrfYHruVRKUNL0JWaUqJQsLMLgNcbsd-ISYufXcjSMRpnYQ")
 outcomes <- list(
-  list(id = "ebi-a-GCST005194", label = "CAD", sheet_name = "Coronary Artery Disease"),
   list(id = "ebi-a-GCST006906", label = "stroke", sheet_name = "Stroke"),
-  list(id = "ebi-a-GCST90027158", label = "Alzheimer", sheet_name = "Alzheimer's disease"),
-  list(id = "ieu-b-7", label = "Parkinson", sheet_name = "Parkinson's disease"),
-  list(id = "ieu-b-5102", label = "SCZ", sheet_name = "Schizophrenia"),
-  list(id = "ieu-b-41", label = "BD", sheet_name = "Bipolar Disorder"),
-  list(id = "ebi-a-GCST90038683", label = "IBD", sheet_name = "InflammatoryBowelDisease"),
-  list(id = "ebi-a-GCST90018910", label = "RA", sheet_name = "Rheumatoid Arthritis"),
-  list(id = "ebi-a-GCST90475667", label = "T2D", sheet_name = "Type2 Diabetes"),
-  list(id = "ebi-a-GCST90018808", label = "Colorectal", sheet_name = "Colorectal Cancer"),
-  list(id = "ebi-a-GCST007090", label = "Knee", sheet_name = "Knee Osteoarthritis"),
-  list(id = "ebi-a-GCST90014022", label = "BMD", sheet_name = "Bone Mineral Density"),
+  list(id = "ebi-a-GCST005194", label = "CAD", sheet_name = "Coronary Artery Disease"),
   list(id = "ieu-b-109", label = "HDL", sheet_name = "HDL Cholesterol"),
   list(id = "ieu-b-110", label = "LDL", sheet_name = "LDL Cholesterol"),
   list(id = "ieu-b-111", label = "Triglycerides", sheet_name = "Triglycerides"),
-  list(id = "ebi-a-GCST90014006", label = "HbA1c", sheet_name = "Glycated Hemoglobin")
+  list(id = "ebi-a-GCST90475667", label = "T2D", sheet_name = "Type2 Diabetes"),
+  list(id = "ebi-a-GCST90014006", label = "HbA1c", sheet_name = "Glycated Hemoglobin"),
+  list(id = "ebi-a-GCST90038683", label = "IBD", sheet_name = "InflammatoryBowelDisease"),
+  list(id = "ebi-a-GCST90018910", label = "RA", sheet_name = "Rheumatoid Arthritis"),
+  list(id = "ieu-b-5102", label = "SCZ", sheet_name = "Schizophrenia"),
+  list(id = "ieu-b-41", label = "BD", sheet_name = "Bipolar Disorder"),
+  list(id = "ebi-a-GCST90027158", label = "Alzheimer", sheet_name = "Alzheimer's disease"),
+  list(id = "ieu-b-7", label = "Parkinson", sheet_name = "Parkinson's disease"),
+  list(id = "ebi-a-GCST90018808", label = "Colorectal", sheet_name = "Colorectal Cancer"),
+  list(id = "ebi-a-GCST007090", label = "Knee", sheet_name = "Knee Osteoarthritis"),
+  list(id = "ebi-a-GCST90014022", label = "BMD", sheet_name = "Bone Mineral Density")
 )
 wb <- createWorkbook()
 # Define styles for Excel
@@ -29,15 +29,15 @@ make_table <- function(outcome, table_number) {
   id <- outcome$id
   label <- outcome$label
   sheet_name <- paste0("Tab S", table_number, " ", outcome$sheet_name)
-  df_MR <- read.csv(paste0(id, "/results/", label, "_MR_GRAPPLE_FDR_p_0.05_summary.csv"))
-  df_MVMR_0.05 <- read.csv(paste0(id, "/results/", label, "_MVMR_GRAPPLE_FDR_p_0.05_summary.csv"))
-  df_MVMR_0.1 <- read.csv(paste0(id, "/results/", label, "_MVMR_GRAPPLE_FDR_p_0.1_summary.csv"))
-  df_MR_strength <- read.csv(paste0(id, "/results/", label, "_final_MR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
+  df_MR <- read.csv(paste0(id, "/results/", label, "_MR_GRAPPLE_FDR_p_0.05_summary_new.csv"))
+  df_MVMR_0.05 <- read.csv(paste0(id, "/results/", label, "_MVMR_GRAPPLE_FDR_p_0.05_summary_new.csv"))
+  df_MVMR_0.1 <- read.csv(paste0(id, "/results/", label, "_MVMR_GRAPPLE_FDR_p_0.1_summary_new.csv"))
+  df_MR_strength <- read.csv(paste0(id, "/results/", label, "_finalselect_MR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
   df_UVMR_strength <- read.csv(paste0(id, "/results/", label, "_selection_UVMR_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
   df_onlyBMI_strength <- read.csv(paste0(id, "/results/", label, "_only_BMI_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
-  df_MVMR_0.05_strength <- read.csv(paste0(id, "/results/", label, "_final_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
-  df_MVMR_0.1_strength <- read.csv(paste0(id, "/results/", label, "_final_MVMR_GRAPPLE_FDR_p_0.1_MVMR_strength.csv"))
-  df_MVMR_0.05_all_strength <- read.csv(paste0(id, "/results/", label, "_unique_traits_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
+  df_MVMR_0.05_strength <- read.csv(paste0(id, "/results/", label, "_finalselect_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
+  df_MVMR_0.1_strength <- read.csv(paste0(id, "/results/", label, "_finalselect_MVMR_GRAPPLE_FDR_p_0.1_MVMR_strength.csv"))
+  df_MVMR_0.05_all_strength <- read.csv(paste0(id, "/results/", label, "_unique_traits_final_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
   df_MVMR_0.05_marginal_strength <- read.csv(paste0(id, "/results/", label, "_selection_marginal_p_0.05_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
   df_MVMR_0.05_literature_strength <- read.csv(paste0(id, "/results/", label, "_selection_literature_MVMR_GRAPPLE_FDR_p_0.05_MVMR_strength.csv"))
   # Order:
@@ -49,8 +49,16 @@ make_table <- function(outcome, table_number) {
   # 6. MVMR-no F-stats filtering with FDR 0.05
   # 7. MVMR-marginal
   # 8. MVMR-literature
+  method_labels <- c(
+  "GRAPPLE_5e-08" = "GRAPPLE (p<5e-08)",
+  "IVW_5e-08" = "IVW (p<5e-08)",
+  "GRAPPLE_1e-05" = "GRAPPLE (p<1e-05)",
+  "MRBEE_5e-08_pleio_0" = "MRBEE (p<5e-08, pleiotropy=0)",
+  "MRBEE_5e-08_pleio_0.05" = "MRBEE (p<5e-08, pleiotropy=0.05)")
   method_order <- df_MVMR_0.05$method %>% unique()
   method_order <- c("GRAPPLE_5e-08", setdiff(method_order, "GRAPPLE_5e-08"))
+  method_order_new <- ifelse(method_order %in% names(method_labels),
+                             method_labels[method_order],method_order)
   res <- df_MVMR_0.05 %>%
     filter(type == "UVMR") %>%
     select(exposure, b, se, pvalue, method) %>%
@@ -85,7 +93,7 @@ make_table <- function(outcome, table_number) {
     ) %>%
     full_join(
       df_MVMR_0.05 %>%
-        filter(type == "unique_traits") %>%
+        filter(type == "unique_traits_final") %>%
         select(exposure, b, se, pvalue, method) %>%
         left_join(df_MVMR_0.05_all_strength[, c("F.statistic", "id")], by = c("exposure" = "id")),
       by = c("exposure", "method")
@@ -107,8 +115,9 @@ make_table <- function(outcome, table_number) {
     rename("ID" = "exposure") %>%
     mutate(trait = gwasinfo(ID)$trait) %>%
     filter(method != "IVW_T_5e-08" & method != "ESMR_5e-08" & method != "ESMR_optimize_5e-08") %>%
+    mutate(method = recode(method, !!!method_labels)) %>%
     select(method, ID, trait, everything()) %>%
-    mutate(method = factor(method, levels = method_order)) %>%
+    mutate(method = factor(method, levels = method_order_new)) %>%
     arrange(method, desc(ID == "ebi-a-GCST90029070"))
   res <- res %>% droplevels()
   res_list <- list()
@@ -129,13 +138,14 @@ make_table <- function(outcome, table_number) {
                     rep(c("MVMR - main results"),4),
                     rep(c("MVMR - FDR 0.1"),4),
                     rep(c("MVMR - no BMI by default"),4),
-                    rep(c("MVMR - MVMR - no F-stats filtering"),4),
+                    rep(c("MVMR - no F-stats filtering"),4),
                     rep(c("MVMR - Marginal Selection"),4),
                     rep(c("MVMR - Literature"),4))
   # Add worksheet for the current outcome with the specified sheet name
   addWorksheet(wb, sheet_name)
   writeData(wb, sheet = sheet_name, x = as.data.frame(t(extra_header)), startRow = 1, colNames = FALSE)
   writeData(wb, sheet = sheet_name, x = res_final, startRow = 2, colNames = TRUE)
+  setColWidths(wb, sheet = sheet_name, cols = c(1, 2), widths = c(20, 85))
   addStyle(wb, sheet = sheet_name, style = header_style, rows = 1, cols = 3:34, gridExpand = TRUE)
   addStyle(wb, sheet = sheet_name, style = header_style, rows = 1, cols = 1:2, gridExpand = TRUE)
 
@@ -159,18 +169,37 @@ for (outcome in outcomes) {
   table_number <- table_number + 1
 }
 # Add Z diff test
-res_diff <- read.csv("res_diff.csv")
+res_diff <- read.csv("res_diff_new.csv")
 addWorksheet(wb, "Tab S18 Diff-test")
 writeData(wb, sheet = "Tab S18 Diff-test", x = res_diff, startRow = 1, colNames = TRUE)
 # Define header style
-header_style_S18 <- createStyle(textDecoration = "bold", fontSize = 12, halign = "center")
-addStyle(wb, sheet = "Tab S18 Diff-test", style = header_style_S18, rows = 1, cols = 1:ncol(res_diff), gridExpand = TRUE)
+header_style <- createStyle(textDecoration = "bold", fontSize = 12, halign = "center")
+addStyle(wb, sheet = "Tab S18 Diff-test", style = header_style, rows = 1, cols = 1:ncol(res_diff), gridExpand = TRUE)
+setColWidths(wb, sheet = "Tab S18 Diff-test",
+             cols = c(2, 3),widths = c(30, 20))
 # Define bold style for significant p-values
 bold_sig_style <- createStyle(textDecoration = "bold", fontColour = "#D7263D")
 sig_rows <- which(res_diff$p_diff < 0.05) + 1
 if (length(sig_rows) > 0) {
   addStyle(wb, sheet = "Tab S18 Diff-test", style = bold_sig_style, rows = sig_rows, cols = ncol(res_diff), gridExpand = FALSE)
 }
+# Add leave-one-out
+res_leaveout <- read.csv("res_leaveout_new.csv")
+addWorksheet(wb, "Tab S19 Leave-one-out")
+writeData(wb, sheet = "Tab S19 Leave-one-out", x = res_leaveout, startRow = 1, colNames = TRUE)
+addStyle(wb, sheet = "Tab S19 Leave-one-out", style = header_style, rows = 1, cols = 1:ncol(res_leaveout), gridExpand = TRUE)
+setColWidths(wb, sheet = "Tab S19 Leave-one-out",
+             cols = c(2, 3, ncol(res_leaveout)-1, ncol(res_leaveout)),
+             widths = c(20, 85, 20, 20))
+# Add three-confounder
+res_three <- read.csv("res_three_new.csv")
+addWorksheet(wb, "Tab S20 Three-confounder")
+writeData(wb, sheet = "Tab S20 Three-confounder", x = res_three, startRow = 1, colNames = TRUE)
+addStyle(wb, sheet = "Tab S20 Three-confounder", style = header_style, rows = 1, cols = 1:ncol(res_three), gridExpand = TRUE)
+setColWidths(wb, sheet = "Tab S20 Three-confounder",
+             cols = c(2, 3, ncol(res_three)-1, ncol(res_three)),
+             widths = c(20, 85, 20, 20))
+
 # Save the workbook with all outcome results
-saveWorkbook(wb, "all_supp_new.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "Supplementary Tables.xlsx", overwrite = TRUE)
 

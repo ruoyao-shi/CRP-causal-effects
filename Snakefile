@@ -1,15 +1,8 @@
-# Snakemake pipeline for running mrScan package
-#
-#
-# LICENSE: CC0. Do what you want with the code, but it has no guarantees.
-#          https://creativecommons.org/share-your-work/public-domain/cc0/
-#
-#
+# Snakemake pipeline for estimating C-reactive protein effects on disease and outcome traits
 #
 # ./run_snakemake.sh
 #
-# don't forget to update cluster.yaml
-
+# don't forget to update cluster.yaml and config.yaml
 
 import pandas as pd
 import random
@@ -39,23 +32,6 @@ if df_info_exposure_outcome == "NA":
     df_info_exposure_outcome = out_dir + "df_info_exposure_outcome.csv"
     
 selection_type = []
-if "classic_Lasso" in config["analysis"]["confounder_selection"]["method"]:
-    classic_Lasso_string = expand("classic_Lasso_{lambda_type}_seed{seed}",
-                              lambda_type = config["analysis"]["confounder_selection"]["lambda_type"],
-                              seed = config["analysis"]["confounder_selection"]["seed"])
-    selection_type.extend(classic_Lasso_string)
-
-if "double_Lasso" in config["analysis"]["confounder_selection"]["method"]:
-    double_Lasso_string = expand("double_Lasso_{lambda_type}_seed{seed}",
-                              lambda_type = config["analysis"]["confounder_selection"]["lambda_type"],
-                              seed = config["analysis"]["confounder_selection"]["seed"])
-    selection_type.extend(double_Lasso_string)
-
-if "stepwise" in config["analysis"]["confounder_selection"]["method"]:
-    stepwise_string =  expand("stepwise_{stepwise_method}",
-                              stepwise_method = config["analysis"]["confounder_selection"]["stepwise_method"])
-    selection_type.extend(stepwise_string)
-
 if "marginal" in config["analysis"]["confounder_selection"]["method"]:
     marginal_string = expand("marginal_p_{marginal_p}",
                               marginal_p = config["analysis"]["confounder_selection"]["marginal_p"])
@@ -63,29 +39,15 @@ if "marginal" in config["analysis"]["confounder_selection"]["method"]:
 
 if "literature" in config["analysis"]["confounder_selection"]["method"]:
     selection_type.append("literature")
-
-if "corrected_Lasso" in config["analysis"]["confounder_selection"]["method"]:
-    corrected_Lasso_string = expand("corrected_Lasso_{radius_type}_seed{seed}",
-                                    radius_type = config["analysis"]["confounder_selection"]["radius_type"],
-                                    seed = config["analysis"]["confounder_selection"]["seed"])
-    selection_type.extend(corrected_Lasso_string)
-
-if "double_corrected_Lasso" in config["analysis"]["confounder_selection"]["method"]:
-    double_corrected_Lasso_string = expand("double_corrected_Lasso_{radius_type}_seed{seed}",
-                                           radius_type = config["analysis"]["confounder_selection"]["radius_type"],
-                                           seed = config["analysis"]["confounder_selection"]["seed"])
-    selection_type.extend(double_corrected_Lasso_string)
     
 if "UVMR" in config["analysis"]["confounder_selection"]["method"]:
     selection_type.append("UVMR")
 
 MVMR_list = expand("selection_{type}",type = selection_type)
 MVMR_list.append("unique_traits")
-MVMR_list.append("unique_traits_filter")
-MVMR_list.append("final")
-MVMR_list.append("only_BMI")
+MVMR_list.append("finalselect")
+#MVMR_list.append("only_BMI")
 MVMR_strength_list = MVMR_list
-#MVMR_strength_list = [x for x in MVMR_list if x != 'selection_UVMR']
 
 R_type = []
 if "pval" in config["analysis"]["estimate_R"]["type"]:
@@ -104,38 +66,20 @@ if "MRBEE" in config["analysis"]["MVMR_analysis"]["method"]:
     MRBEE_string = expand("MRBEE_{MRBEE_pt}_pleio_{pleio_pt}",MRBEE_pt = config["analysis"]["MVMR_analysis"]["p_thresh_MRBEE"],
                            pleio_pt = config["analysis"]["MVMR_analysis"]["pleio_p_thresh"])
     MVMR_method.extend(MRBEE_string)
-if "ESMR" in config["analysis"]["MVMR_analysis"]["method"]:
-    ESMR_string = expand("ESMR_{ESMR_pt}",ESMR_pt = config["analysis"]["MVMR_analysis"]["p_thresh_ESMR"])
-    MVMR_method.extend(ESMR_string)
 
 MVMR_R_type = config["analysis"]["MVMR_analysis"]["R_type"]
-cluster_selection_method = config["analysis"]["unique_traits"]["cluster_selection_method"]
 downstream_filter_method = expand("{downstream_method}_FDR_p_{downstream_p}", downstream_method = config["analysis"]["downstream_filter"]["method"],
                                   downstream_p = config["analysis"]["downstream_filter"]["p"])
-#if os.path.exists("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_id_list.csv"):
-#    trait_id = pd.read_csv("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_id_list.csv")['id'].tolist()
-
-#trait_id = pd.read_csv("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/CRP_qc_string_id_list.csv")['id'].tolist()
-#trait_id = pd.read_csv("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/ieu-b-5102/results/SCZ_strength_filter_initial_id_list.csv")['id'].tolist()
 rule all:
     input:
         #data_dir + exposure_prefix + "extract_traits.RDS",
         #expand(out_dir + exposure_prefix + "qc_string_{suffix}.csv",suffix = ["id_list","trait_info"]),
         #expand(out_dir + prefix + "strength_filter_initial_{suffix}.csv",suffix = ["id_list","trait_info","df_strength"]),
-        #expand(data_dir + "bidirection_{ID1}_{ID2}.RDS", ID1 = [id_exposure,id_outcome], ID2 = trait_id),
-        #expand(data_dir + "bidirection_{ID1}_{ID3}_{ID2}.RDS",ID1 = [id_exposure,id_outcome], ID2 = trait_id, ID3 = ["ukb-b-19953"])
         #expand(out_dir + prefix + "downstream_filter_{suffix}_{method}.csv",suffix=["id_list", "trait_info", "df_bidirection"], method=downstream_filter_method)
-        #expand(data_dir + prefix + "download_{method}.sh",method = downstream_filter_method),
-        #expand(data_dir + prefix + "success_download_{method}.txt",method = downstream_filter_method),
-        #expand(out_dir + prefix + "pairwise_cor_{method}.RDS",method = downstream_filter_method),
-        #expand(out_dir + prefix + "unique_traits_{cluster_selection_meth}_{method}_{suffix}.csv",cluster_selection_meth = cluster_selection_method,method=downstream_filter_method, suffix = ["id_list","trait_info"]),
-        #expand(out_dir + prefix + "unique_traits_{suffix}.csv",suffix = ["filter_id_list","filter_trait_info","df_strength"]),
-        #expand(out_dir + prefix + "{MVMR_id}_MVMR_{type}.RDS",MVMR_id = MVMR_list, type=MVMR_method),
-        #data_dir + prefix + "selection_instruments_Local.RDS"
+        expand(out_dir + prefix + "unique_traits_{method}_{suffix}.csv",method=downstream_filter_method, suffix = ["id_list","trait_info"]),
         expand(out_dir + prefix + "{MVMR_strength_id}_{method}_MVMR_strength.csv",MVMR_strength_id = MVMR_strength_list,method = downstream_filter_method),
         expand(out_dir + prefix + "{method}_summary.{suffix}",method = downstream_filter_method, suffix = ["csv","pdf"])
 
-    
 rule extract_traits:
     params: id_exposure = id_exposure,
             batch = config["analysis"]["extract_traits"]["batch"],
@@ -151,32 +95,30 @@ rule extract_traits:
             ref_path = config["analysis"]["ldprune"]["ref_path"],
             df_candidate_traits = config["analysis"]["extract_traits"]["df_candidate_traits"]
     output: out = data_dir + exposure_prefix + "extract_traits.RDS"
-    script: '../R/1_extract_traits.R'
+    script: 'R/1_extract_traits.R'
 
 checkpoint quality_control:
     input: file = data_dir + exposure_prefix + "extract_traits.RDS"
     params: nsnp_cutoff = config["analysis"]["quality_control"]["nsnp_cutoff"],
             population = config["analysis"]["quality_control"]["pop"],
             gender = config["analysis"]["quality_control"]["gender"]
-    output: id_list = "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_id_list.csv",
-            trait_info = "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_trait_info.csv",
-    script: '../R/2_quality_control.R'
+    output: id_list = out_dir + exposure_prefix + "qc_id_list.csv",
+            trait_info = out_dir + exposure_prefix + "qc_trait_info.csv",
+    script: 'R/2_quality_control.R'
 
 rule extract_inst:
     params: pval_instruments = config["analysis"]["pval_instruments"],
             trait = "{ID}"
     output: out = data_dir + "inst_{ID}.RDS"
     wildcard_constraints: ID = "[^_]+"
-    retries: 3
-    script: "../R/extract_inst.R"
+    script: "R/extract_inst.R"
 
 rule extract_inst_mvmr:
     params: pval_instruments = config["analysis"]["pval_instruments"],
             trait1 = "{ID1}",
             trait2 = "{ID2}"
     output: out = data_dir + "inst_{ID1}_{ID2}.RDS"
-    retries: 3
-    script: "../R/extract_inst_mvmr.R"
+    script: "R/extract_inst_mvmr.R"
 
 def input_string_filter(wcs):
     file = checkpoints.quality_control.get().output[0]
@@ -184,14 +126,14 @@ def input_string_filter(wcs):
     return expand(data_dir + "inst_{ID}.RDS", ID  = trait_id)
     
 checkpoint string_filter:
-    input: id_list = ancient("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_id_list.csv"),
-           trait_info = ancient("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_trait_info.csv"),
+    input: id_list = out_dir + exposure_prefix + "qc_id_list.csv",
+           trait_info = out_dir + exposure_prefix + "qc_trait_info.csv",
            files = input_string_filter
     params: R2_cutoff = config["analysis"]["string_filter"]["R2_cutoff"],
             extra_traits = config["analysis"]["string_filter"]["extra_trait"]
-    output: out_id_list = "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_string_id_list.csv",
-            out_trait_info = "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_string_trait_info.csv"
-    script: "../R/3_string_filter.R"
+    output: out_id_list = out_dir + exposure_prefix + "qc_string_id_list.csv",
+            out_trait_info = out_dir + exposure_prefix + "qc_string_trait_info.csv"
+    script: "R/3_string_filter.R"
 
 rule extract_dat_strength:
     params: pval_instruments = config["analysis"]["pval_instruments"],
@@ -200,8 +142,7 @@ rule extract_dat_strength:
             trait3 = "{ID3}",
             id_outcome = id_outcome
     output: out = data_dir + prefix + "mvdat_{ID1}_{ID2}_{ID3}.RDS"
-    retries: 3
-    script: "../R/extract_dat_strength.R"
+    script: "R/extract_dat_strength.R"
 
 rule extract_dat_strength_uni:
     params: pval_instruments = config["analysis"]["pval_instruments"],
@@ -209,10 +150,9 @@ rule extract_dat_strength_uni:
             trait2 = "{ID2}",
             id_outcome = id_outcome
     output: out = data_dir + prefix + "mvdat_{ID1}_{ID2}.RDS"
-    retries: 3
     wildcard_constraints: ID1 = "[^_]+",
                           ID2 = "[^_]+"
-    script: "../R/extract_dat_strength_uni.R"
+    script: "R/extract_dat_strength_uni.R"
     
 def input_strength_filter_initial(wcs):
     file = checkpoints.string_filter.get().output[0]
@@ -226,7 +166,7 @@ def input_strength_filter_initial(wcs):
 
 checkpoint strength_filter_initial:
     input: dat = input_strength_filter_initial,
-           trait_info = "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_string_trait_info.csv"
+           trait_info = out_dir + exposure_prefix + "qc_string_trait_info.csv"
     params: pval_threshold = config["analysis"]["strength_filter_initial"]["pval_threshold"],
             F_threshold = config["analysis"]["strength_filter_initial"]["F_threshold"],
             effect_size_cutoff = config["analysis"]["strength_filter_initial"]["effect_size_cutoff"],
@@ -234,20 +174,16 @@ checkpoint strength_filter_initial:
             extra_trait = config["analysis"]["bidirection_mr"]["extra_trait"],
             type_outcome = type_outcome,
             prevalence_outcome = prevalence_outcome
-    output: #out_id_list = out_dir + prefix + "strength_filter_initial_MR_id_list.csv",
-            #out_trait_info = out_dir + prefix + "strength_filter_initial_MR_trait_info.csv",
-            #out_df_strength = out_dir + prefix + "strength_filter_initial_MR_df_strength.csv"
-            out_id_list = out_dir + prefix + "strength_filter_initial_id_list.csv",
+    output: out_id_list = out_dir + prefix + "strength_filter_initial_id_list.csv",
             out_trait_info = out_dir + prefix + "strength_filter_initial_trait_info.csv",
             out_df_strength = out_dir + prefix + "strength_filter_initial_df_strength.csv"
-    script: "../R/4_strength_filter_initial.R"
+    script: "R/4_strength_filter_initial.R"
     
 def input_downstream(wcs):
     file = checkpoints.strength_filter_initial.get().output[0]
     trait_id = pd.read_csv(file)['id'].tolist()
     extra_traits =  config["analysis"]["bidirection_mr"]["extra_trait"]
     if extra_traits == "None":
-        #trait_id.append("ukb-b-19953")
         return expand(data_dir + "bidirection_{ID1}_{ID2}.RDS", ID1 = [id_exposure,id_outcome], ID2 = trait_id)
     else:
         if extra_traits in trait_id:
@@ -264,18 +200,16 @@ rule bidirection_mr:
             id_outcome = id_outcome,
             type_outcome = type_outcome
     output: out = data_dir + "bidirection_{ID1}_{ID2}.RDS"
-    #retries: 3
-    resources: bidirection_mr_slots=1
     wildcard_constraints: ID1 = "[^_]+",
                           ID2 = "[^_]+"
-    script: "../R/4_bidirection_mr.R"
+    script: "R/4_bidirection_mr.R"
 
 rule bidirection_mvmr:
     input: file1 = data_dir + "inst_{ID1}_{ID3}.RDS", # X/Y + M
            file2 = data_dir + "inst_{ID2}.RDS", # Z
            file3 = data_dir + "inst_{ID2}_{ID3}.RDS", # Z + M
            file4 = data_dir + "inst_{ID1}.RDS", # X/Y
-           trait_info = ancient("/nfs/turbo/sph-jvmorr/CRP_project/pipeline/results/" + exposure_prefix + "qc_string_trait_info.csv")
+           trait_info = out_dir + exposure_prefix + "qc_string_trait_info.csv"
     params: min_instruments = config["analysis"]["bidirection_mr"]["min_instruments"],
             effect_size_cutoff = config["analysis"]["bidirection_mr"]["effect_size_cutoff"],
             R2_cutoff = config["analysis"]["quality_control"]["R2_cutoff"],
@@ -283,15 +217,11 @@ rule bidirection_mvmr:
             id_outcome = id_outcome,
             type_outcome = type_outcome
     output: out = data_dir + "bidirection_{ID1}_{ID3}_{ID2}.RDS"
-    resources: bidirection_mvmr_slots=1
-    #retries: 3
-    script: "../R/4_bidirection_mvmr.R"
+    script: "R/4_bidirection_mvmr.R"
 
 rule downstream_filter:
-    input: #id_list = out_dir + prefix + "strength_filter_initial_MR_id_list.csv",
-           id_list = out_dir + prefix + "strength_filter_initial_id_list.csv",
+    input: id_list = out_dir + prefix + "strength_filter_initial_id_list.csv",
            mr_files = input_downstream,
-           #trait_info = out_dir + prefix + "strength_filter_initial_MR_trait_info.csv",
            trait_info = out_dir + prefix + "strength_filter_initial_trait_info.csv",
     params: id_exposure = id_exposure,
             p = lambda wc: wc.get("downstream_p"),
@@ -301,13 +231,12 @@ rule downstream_filter:
             out_trait_info = out_dir + prefix + "downstream_filter_trait_info_{downstream_method}_FDR_p_{downstream_p}.csv",
             out_df_bidirection = out_dir + prefix + "downstream_filter_df_bidirection_{downstream_method}_FDR_p_{downstream_p}.csv"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
-                          #downstream_method = "MR_.*",
                           downstream_p = "[\d.]+"
-    script: "../R/4_downstream_filter.R"
+    script: "R/4_downstream_filter.R"
 
 rule generate_download_file:
     input: file =  out_dir + prefix + "downstream_filter_id_list_{downstream_method}_FDR_p_{downstream_p}.csv",
-           df_harmonise = "/nfs/turbo/sph-jvmorr/CRP_project/pipeline/harmonised_list.txt"
+           df_harmonise = "harmonised_list.txt" # Change to your path of harmonised_list.txt, and it could be downloaded in GWAS Catalog
     params: path = original_gwas_dir,
             checkpoint = data_dir + prefix + "success_download_{downstream_method}_FDR_p_{downstream_p}.txt",
             id_exposure = id_exposure,
@@ -315,7 +244,7 @@ rule generate_download_file:
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
     output: out = data_dir + prefix + "download_{downstream_method}_FDR_p_{downstream_p}.sh"
-    script: "../R/5_download_data.R"
+    script: "R/5_download_data.R"
 
 checkpoint download_gwas:
     input: data_dir + prefix + "download_{downstream_method}_FDR_p_{downstream_p}.sh"
@@ -341,7 +270,7 @@ rule combine_gwas:
     wildcard_constraints: downstream_method = ".*(MR|MVMR).*",
                           downstream_p = "[\d.]+",
                           chrom = "\d+"
-    script: "../R/5_combine_gwas.R"
+    script: "R/5_combine_gwas.R"
 
 rule calculate_cor:
     input: beta = expand(data_dir + prefix + "all_beta.{chrom}_{{downstream_method}}_FDR_p_{{downstream_p}}.RDS", chrom = range(1, 23)),
@@ -350,101 +279,23 @@ rule calculate_cor:
     output: out = out_dir + prefix + "pairwise_cor_{downstream_method}_FDR_p_{downstream_p}.RDS"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/5_ldsc_full.R"
+    script: "R/5_ldsc_full.R"
 
 rule unique_traits:
     input: id_list = out_dir + prefix + "downstream_filter_id_list_{downstream_method}_FDR_p_{downstream_p}.csv",
            trait_info = out_dir + prefix + "downstream_filter_trait_info_{downstream_method}_FDR_p_{downstream_p}.csv",
-           pairwise_cor = out_dir + prefix + "pairwise_cor_{downstream_method}_FDR_p_{downstream_p}.RDS",
-           df_bidirection = out_dir + prefix + "downstream_filter_df_bidirection_{downstream_method}_FDR_p_{downstream_p}.csv"
+           pairwise_cor = out_dir + prefix + "pairwise_cor_{downstream_method}_FDR_p_{downstream_p}.RDS"
     params: R2_cutoff = config["analysis"]["unique_traits"]["R2_cutoff"],
-            method = config["analysis"]["unique_traits"]["method"],
-            extra_traits =  config["analysis"]["bidirection_mr"]["extra_trait"],
-            cluster_selection_method = "{cluster_selection_meth}"
-    output: out_id_list = out_dir + prefix + "unique_traits_{cluster_selection_meth}_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
-            out_trait_info = out_dir + prefix + "unique_traits_{cluster_selection_meth}_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
-    wildcard_constraints: downstream_method = ".*(MR|MVMR).*",
-                          downstream_p = "[\d.]+",
-                          cluster_selection_meth = "n_inst|pvalue"
-    script: "../R/5_unique_traits.R"
-
-rule strength_filter:
-    input: beta = expand(data_dir + prefix + "unique_traits_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
-           R = out_dir + prefix + "unique_traits_{downstream_method}_FDR_p_{downstream_p}_R_" + MVMR_R_type + ".RDS",
-           trait_info = out_dir + prefix + "unique_traits_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
-    params: pval_threshold = config["analysis"]["strength_filter"]["pval_threshold"],
-            F_threshold = config["analysis"]["strength_filter"]["F_threshold"],
-            R_type = MVMR_R_type,
-            extra_traits =  config["analysis"]["strength_filter"]["extra_traits"],
-            effect_size_cutoff = config["analysis"]["MVMR_analysis"]["effect_size_cutoff"],
-            type_outcome = type_outcome,
-            prevalence_outcome = prevalence_outcome
-    output: out_id_list = out_dir + prefix + "unique_traits_filter_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
-            out_trait_info = out_dir + prefix + "unique_traits_filter_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv",
-            out_df_strength = out_dir + prefix + "unique_traits_filter_{downstream_method}_FDR_p_{downstream_p}_df_strength.csv"
+            extra_traits =  config["analysis"]["bidirection_mr"]["extra_trait"]
+    output: out_id_list = out_dir + prefix + "unique_traits_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
+            out_trait_info = out_dir + prefix + "unique_traits_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
     wildcard_constraints: downstream_method = ".*(MR|MVMR).*",
                           downstream_p = "[\d.]+"
-    script: "../R/6_strength_filter.R"
-
-rule selection_instruments_api:
-    input: id_list = out_dir + prefix + "unique_traits_filter_id_list.csv"
-    params: id_exposure = id_exposure,
-            id_outcome = id_outcome,
-            r2_thresh = config["analysis"]["confounder_selection"]["r2_thresh"],
-            clump_kb = config["analysis"]["confounder_selection"]["clump_kb"],
-            pval_threshold = config["analysis"]["confounder_selection"]["pval_threshold"],
-            find_proxies = config["analysis"]["confounder_selection"]["find_proxies"],
-            population = config["analysis"]["pop"],
-            harmonise_strictness = config["analysis"]["confounder_selection"]["harmonise_strictness"]
-    output: out = data_dir + prefix + "selection_instruments_API.RDS"
-    script: "../R/7_selection_instruments_api.R"
-
-rule selection_instruments_local:
-    input: beta = expand(data_dir + prefix + "unique_traits_filter_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23))
-    params: pval_threshold = config["analysis"]["confounder_selection"]["pval_threshold"]
-    output: out = data_dir + prefix + "selection_instruments_Local.RDS"
-    script: "../R/7_selection_instruments_local.R"
-
-instrument_file =  data_dir + prefix + "selection_instruments_" + config["analysis"]["confounder_selection"]["method_instruments"] + ".RDS"
-
-rule classic_Lasso:
-    input: id_list = out_dir + prefix + "unique_traits_filter_id_list.csv",
-           trait_info = out_dir + prefix + "unique_traits_filter_trait_info.csv",
-           instruments = instrument_file
-    params: id_exposure = id_exposure,
-            lambda_type = lambda wc: wc.get("lambda_type"),
-            seed = config["analysis"]["confounder_selection"]["seed"]
-    output: out_id_list = out_dir + prefix + "selection_classic_Lasso_{lambda_type}_seed{seed}_id_list.csv",
-            out_trait_info = out_dir + prefix + "selection_classic_Lasso_{lambda_type}_seed{seed}_trait_info.csv"
-    wildcard_constraints: seed = "\d+"
-    script: "../R/7_classic_Lasso.R"
-
-rule double_Lasso:
-    input: id_list = out_dir + prefix + "unique_traits_filter_id_list.csv",
-           trait_info = out_dir + prefix + "unique_traits_filter_trait_info.csv",
-           instruments = instrument_file
-    params: id_exposure = id_exposure,
-            lambda_type = lambda wc: wc.get("lambda_type"),
-            seed = config["analysis"]["confounder_selection"]["seed"]
-    output: out_id_list = out_dir + prefix + "selection_double_Lasso_{lambda_type}_seed{seed}_id_list.csv",
-            out_trait_info = out_dir + prefix + "selection_double_Lasso_{lambda_type}_seed{seed}_trait_info.csv"
-    wildcard_constraints: seed = "\d+"
-    script: "../R/7_double_Lasso.R"
-
-rule stepwise:
-    input: id_list = out_dir + prefix + "unique_traits_filter_id_list.csv",
-           trait_info = out_dir + prefix + "unique_traits_filter_trait_info.csv",
-           instruments = instrument_file
-    params: id_exposure = id_exposure,
-            method = lambda wc: wc.get("stepwise_method")
-    wildcard_constraints: stepwise_method = '[a-z]+'
-    output: out_id_list = out_dir + prefix + "selection_stepwise_{stepwise_method}_id_list.csv",
-            out_trait_info = out_dir + prefix + "selection_stepwise_{stepwise_method}_trait_info.csv"
-    script: "../R/7_stepwise.R"
+    script: "R/5_unique_traits_inst.R"
 
 rule marginal:
-    input: id_list = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
-           trait_info = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv",
+    input: id_list = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
+           trait_info = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv",
            file_bidirection = out_dir + prefix + "downstream_filter_df_bidirection_{downstream_method}_FDR_p_{downstream_p}.csv"
     params: p_cutoff = lambda wc: wc.get("marginal_p"),
             extra_traits =  config["analysis"]["bidirection_mr"]["extra_trait"]
@@ -453,43 +304,17 @@ rule marginal:
     wildcard_constraints: marginal_p = "\d+(\.\d+)?",
                           downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/7_marginal.R"
+    script: "R/7_marginal.R"
 
 rule literature:
-    input: id_list = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
-           trait_info = out_dir + prefix + "final_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv",
+    input: id_list = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
+           trait_info = out_dir + prefix + "finalselect_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv",
     params: literature_traits =  config["analysis"]["confounder_selection"]["literature_traits"]
     output: out_id_list = out_dir + prefix + "selection_literature_{downstream_method}_FDR_p_{downstream_p}_id_list.csv",
             out_trait_info = out_dir + prefix + "selection_literature_{downstream_method}_FDR_p_{downstream_p}_trait_info.csv"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/7_literature.R"
-
-rule corrected_Lasso:
-    input: id_list = out_dir + prefix + "unique_traits_filter_id_list.csv",
-           trait_info = out_dir + prefix + "unique_traits_filter_trait_info.csv",
-           instruments = instrument_file
-    params: id_exposure = id_exposure,
-            radius_type = lambda wc: wc.get("radius_type"),
-            seed = config["analysis"]["confounder_selection"]["seed"],
-            maxits = config["analysis"]["confounder_selection"]["maxits"]
-    output: out_id_list = out_dir + prefix + "selection_corrected_Lasso_{radius_type}_seed{seed}_id_list.csv",
-            out_trait_info = out_dir + prefix + "selection_corrected_Lasso_{radius_type}_seed{seed}_trait_info.csv"
-    wildcard_constraints: seed = "\d+"
-    script: "../R/7_corrected_Lasso.R"
-
-rule double_corrected_Lasso:
-    input: id_list = out_dir + prefix + "unique_traits_filter_id_list.csv",
-           trait_info = out_dir + prefix + "unique_traits_filter_trait_info.csv",
-           instruments = instrument_file
-    params: id_exposure = id_exposure,
-            radius_type = lambda wc: wc.get("radius_type"),
-            seed = config["analysis"]["confounder_selection"]["seed"],
-            maxits = config["analysis"]["confounder_selection"]["maxits"]
-    output: out_id_list = out_dir + prefix + "selection_double_corrected_Lasso_{radius_type}_seed{seed}_id_list.csv",
-            out_trait_info = out_dir + prefix + "selection_double_corrected_Lasso_{radius_type}_seed{seed}_trait_info.csv"
-    wildcard_constraints: seed = "\d+"
-    script: "../R/7_double_corrected_Lasso.R"
+    script: "R/7_literature.R"
 
 rule UVMR:
     output: temp(out_dir + prefix + 'UVMR.csv')
@@ -509,9 +334,6 @@ def input_MVMR_combine_gwas(wildcards):
         if wildcards.MVMR_id == 'selection_literature':
             literature_file = config["analysis"]["confounder_selection"]["df_literature"]
             inputs.append(literature_file)
-        if "mediation" in wildcards.MVMR_id:
-            mediation_file = config["analysis"]["confounder_selection"]["df_mediation"]
-            inputs.append(mediation_file)
     return inputs
 
 rule info_exposure_outcome:
@@ -519,7 +341,7 @@ rule info_exposure_outcome:
             id_outcome = id_outcome
     output: 
         out = df_info_exposure_outcome
-    script: "../R/generate_info.R"
+    script: "R/generate_info.R"
     
 rule MVMR_combine_gwas:
     input: file = input_MVMR_combine_gwas,
@@ -533,7 +355,7 @@ rule MVMR_combine_gwas:
                           MVMR_id = "(?!.*all).*",
                           downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/8_MVMR_combine_gwas.R"
+    script: "R/8_MVMR_combine_gwas.R"
 
 rule MVMR_LD_clumping:
     input: beta = data_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_beta.{chrom}.RDS"
@@ -546,7 +368,7 @@ rule MVMR_LD_clumping:
     wildcard_constraints: chrom = "\d+",
                           downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/8_ld_prune_plink.R"
+    script: "R/8_ld_prune_plink.R"
 
 rule MVMR_R_ldsc:
     input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta.{chrom}.RDS", chrom = range(1, 23)),
@@ -554,14 +376,14 @@ rule MVMR_R_ldsc:
            l2 = expand(l2_dir + "{chrom}.l2.ldscore.gz", chrom = range(1, 23))
     output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_R_ldsc.RDS"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)"
-    script: "../R/5_ldsc_full.R"
+    script: "R/5_ldsc_full.R"
 
 rule MVMR_R_pval:
     input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23))
     params: p_thresh = config["analysis"]["estimate_R"]["p_thresh"]
     output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_R_pval.RDS"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)"
-    script: "../R/8_estimate_R_pval.R"
+    script: "R/8_estimate_R_pval.R"
 
 rule MVMR_IVW:
     input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23))
@@ -572,7 +394,7 @@ rule MVMR_IVW:
     output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_MVMR_IVW_{IVW_pt}.RDS"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/9_MVMR_IVW.R"
+    script: "R/9_MVMR_IVW.R"
 
 rule MVMR_GRAPPLE:
     input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
@@ -585,7 +407,7 @@ rule MVMR_GRAPPLE:
     output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_MVMR_GRAPPLE_{GRAPPLE_pt}.RDS"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/9_MVMR_GRAPPLE.R"
+    script: "R/9_MVMR_GRAPPLE.R"
 
 rule MVMR_MRBEE:
     input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
@@ -599,20 +421,7 @@ rule MVMR_MRBEE:
     output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_MVMR_MRBEE_{MRBEE_pt}_pleio_{pleio_pt}.RDS"
     wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/9_MVMR_MRBEE.R"
-
-rule MVMR_ESMR:
-    input: beta = expand(data_dir + prefix + "{{MVMR_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
-           R = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_R_" + MVMR_R_type + ".RDS"
-    params: pval_threshold = lambda wc: wc.get("ESMR_pt"),
-            R_type = MVMR_R_type,
-            effect_size_cutoff = config["analysis"]["MVMR_analysis"]["effect_size_cutoff"],
-            type_outcome = type_outcome,
-            prevalence_outcome = prevalence_outcome
-    output: out = out_dir + prefix + "{MVMR_id}_{downstream_method}_FDR_p_{downstream_p}_MVMR_ESMR_{ESMR_pt}.RDS"
-    wildcard_constraints: downstream_method = "(MR_.*|MVMR_.*)",
-                          downstream_p = "[\d.]+"
-    script: "../R/9_MVMR_ESMR.R"
+    script: "R/9_MVMR_MRBEE.R"
 
 rule MVMR_strength:
     input: beta = expand(data_dir + prefix + "{{MVMR_strength_id}}_{{downstream_method}}_FDR_p_{{downstream_p}}_beta_ldpruned.{chrom}.RDS", chrom = range(1, 23)),
@@ -627,7 +436,7 @@ rule MVMR_strength:
     wildcard_constraints: MVMR_id = "(?!.*all).*",
                           downstream_method = "(MR_.*|MVMR_.*)",
                           downstream_p = "[\d.]+"
-    script: "../R/9_MVMR_strength.R"
+    script: "R/9_MVMR_strength.R"
     
 rule summary_result:
     input: mvmr_file = expand(out_dir + prefix + "{MVMR_id}_{{downstream_method}}_FDR_p_{{downstream_p}}_MVMR_{type}.RDS",MVMR_id = MVMR_list, type=MVMR_method),
@@ -638,7 +447,7 @@ rule summary_result:
             id_outcome = id_outcome
     output: out1 = out_dir + prefix + "{downstream_method}_FDR_p_{downstream_p}_summary.csv",
             out2 = out_dir + prefix + "{downstream_method}_FDR_p_{downstream_p}_summary.pdf"
-    script: "../R/10_summary_result.R"
+    script: "R/10_summary_result.R"
 
 
 

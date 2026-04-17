@@ -73,8 +73,7 @@ for (m in MVMR_methods) {
 }
 all_res <- all_res %>% mutate(CI_lower=b-qnorm(0.975)*se, CI_higher=b + qnorm(0.975)*se) %>%
            mutate(odds=exp(b),CI_lower=exp(CI_lower),CI_higher=exp(CI_higher))
-#all_res[all_res$type == "unique_traits","type"] <- "All"
-all_res[all_res$type == "final","type"] <- "Stepwise"
+all_res[all_res$type == "finalselect","type"] <- "Stepwise"
 plt<- all_res %>% filter(exposure==id_exposure) %>%
        filter(converge == TRUE | is.na(converge)) %>%
        filter(se < 1) %>%
